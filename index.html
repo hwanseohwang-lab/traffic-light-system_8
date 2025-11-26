@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신호등 수강생 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            900: '#111827',
+                            800: '#1f2937',
+                            700: '#374151',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'fade-in-down': 'fadeInDown 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        fadeInDown: {
+                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: radial-gradient(circle at top left, #1f2937, #111827);
+        }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .filter-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .filter-card:hover {
+            transform: translateY(-2px);
+            background-opacity: 0.1;
+        }
+
+        .filter-card.active {
+            border-width: 2px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Timeline Line */
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 15px;
+            width: 2px;
+            background: #374151;
+            z-index: 0;
+        }
+    </style>
+</head>
+
+<body class="text-white min-h-screen flex flex-col items-center p-6 pb-20">
+
+    <!-- Header -->
+    <header class="w-full max-w-6xl flex justify-between items-center mb-8 animate-fade-in-down">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg shadow-blue-500/30">
+                <i data-lucide="traffic-light" class="w-8 h-8 text-white"></i>
+            </div>
+            <div>
+                <h1
+                    class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                    Traffic Light System
+                </h1>
+                <p class="text-gray-400 text-sm">지능형 수강생 상태 관리 대시보드 (Startup Track)</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="openSettings()"
+                class="px-4 py-2 text-sm text-gray-400 hover:bg-white/10 rounded-lg transition-colors border border-transparent hover:border-white/30 flex items-center gap-2">
+                <i data-lucide="settings" class="w-4 h-4"></i> 설정
+            </button>
+            <button onclick="syncData()" id="syncBtn"
+                class="px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors border border-transparent hover:border-blue-500/30 flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i> 동기화
+            </button>
+        </div>
+    </header>
+
+    <!-- Dashboard Summary Cards (Interactive Filters) -->
+    <section class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 animate-fade-in">
+        <div onclick="setFilter('ALL')" id="card-ALL"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center col-span-2 md:col-span-1 border-blue-500/30 bg-blue-500/5 active">
+            <span class="text-gray-400 text-xs uppercase tracking-wider mb-1">Total</span>
+            <span id="statTotal" class="text-3xl font-bold text-white">0</span>
+        </div>
+        <div onclick="setFilter('GREEN')" id="card-GREEN"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-green-500/30 bg-green-500/5">
+            <span class="text-green-400 text-xs uppercase tracking-wider mb-1">Green</span>
+            <span id="statGreen" class="text-2xl font-bold text-green-400">0</span>
+        </div>
+        <div onclick="setFilter('LIGHT_GREEN')" id="card-LIGHT_GREEN"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-lime-400/30 bg-lime-400/5">
+            <span class="text-lime-400 text-xs uppercase tracking-wider mb-1">Light</span>
+            <span id="statLightGreen" class="text-2xl font-bold text-lime-400">0</span>
+        </div>
+        <div onclick="setFilter('YELLOW')" id="card-YELLOW"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-yellow-400/30 bg-yellow-400/5">
+            <span class="text-yellow-400 text-xs uppercase tracking-wider mb-1">Yellow</span>
+            <span id="statYellow" class="text-2xl font-bold text-yellow-400">0</span>
+        </div>
+        <div onclick="setFilter('ORANGE')" id="card-ORANGE"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-orange-400/30 bg-orange-400/5">
+            <span class="text-orange-400 text-xs uppercase tracking-wider mb-1">Orange</span>
+            <span id="statOrange" class="text-2xl font-bold text-orange-400">0</span>
+        </div>
+        <div onclick="setFilter('RED')" id="card-RED"
+            class="filter-card glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-red-500/30 bg-red-500/5">
+            <span class="text-red-500 text-xs uppercase tracking-wider mb-1">Red</span>
+            <span id="statRed" class="text-2xl font-bold text-red-500">0</span>
+        </div>
+    </section>
+
+    <!-- Main Content Grid -->
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left Column: Input Form (4 cols) -->
+        <div class="lg:col-span-4 space-y-6">
+            <section class="glass-panel rounded-2xl p-6 shadow-2xl relative overflow-hidden group">
+                <div
+                    class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                </div>
+
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <i data-lucide="pen-tool" class="w-5 h-5 text-blue-400"></i>
+                    수강생 분석
+                </h2>
+
+                <form id="analysisForm" onsubmit="handleAnalyze(event)" class="space-y-4 relative z-10">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">수강생 이름</label>
+                        <input type="text" id="studentName" required
+                            class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+                            placeholder="예: 김스파르타">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">면담 및 관찰 내용</label>
+                        <textarea id="studentNotes" required rows="8"
+                            class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600 resize-none"
+                            placeholder="진행률, 피드백 반영 여부, 특이사항 등을 자유롭게 적어주세요.&#10;(예: 진행률 40%인데 연락이 잘 안되고 가이드를 무시함)"></textarea>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-3 rounded-lg shadow-lg shadow-blue-500/30 transform transition-all active:scale-95 flex justify-center items-center gap-2 group">
+                        <span>분석 시작</span>
+                        <i data-lucide="sparkles" class="w-4 h-4 group-hover:rotate-12 transition-transform"></i>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Latest Result Card -->
+            <section id="resultSection"
+                class="glass-panel rounded-2xl p-6 shadow-2xl min-h-[300px] flex flex-col items-center justify-center text-center transition-all duration-300">
+                <div class="p-4 bg-gray-800/50 rounded-full mb-4">
+                    <i data-lucide="search" class="w-12 h-12 text-gray-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-300">분석 대기 중</h3>
+                <p class="text-gray-500 mt-2 text-sm">내용을 입력하고 분석을 시작하세요.</p>
+            </section>
+        </div>
+
+        <!-- Right Column: Student List Table (8 cols) -->
+        <div class="lg:col-span-8">
+            <section class="glass-panel rounded-2xl p-6 shadow-2xl h-full flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-semibold text-gray-200 flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5 text-purple-400"></i>
+                        수강생 목록
+                    </h3>
+                    <div class="flex gap-2">
+                        <!-- Hidden select for logic, controlled by cards -->
+                        <select id="filterStatus" onchange="renderTable()" class="hidden">
+                            <option value="ALL">전체 보기</option>
+                            <option value="RED">빨강</option>
+                            <option value="ORANGE">주황</option>
+                            <option value="YELLOW">노랑</option>
+                            <option value="LIGHT_GREEN">연두</option>
+                            <option value="GREEN">초록</option>
+                        </select>
+                        <span id="currentFilterLabel"
+                            class="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">전체
+                            보기</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-grow">
+                    <table class="w-full text-sm text-left text-gray-400">
+                        <thead class="text-xs text-gray-500 uppercase bg-gray-900/50 border-b border-gray-700">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">상태</th>
+                                <th scope="col" class="px-6 py-3">이름</th>
+                                <th scope="col" class="px-6 py-3">분석 결과 (Reasoning & Startup Tags)</th>
+                                <th scope="col" class="px-6 py-3 text-right">일시</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody">
+                            <!-- Rows injected here -->
+                            <tr>
+                                <td colspan="4" class="px-6 py-10 text-center text-gray-600">
+                                    데이터가 없습니다.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- History Modal -->
+    <div id="historyModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl transform transition-all scale-95 opacity-0"
+            id="modalContent">
+
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-800/50 rounded-t-2xl">
+                <div>
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span id="modalStudentName">학생 이름</span>
+                        <span class="text-sm font-normal text-gray-400">히스토리</span>
+                    </h3>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Timeline) -->
+            <div class="p-6 overflow-y-auto relative timeline-line" id="modalTimeline">
+                <!-- Timeline items injected here -->
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col shadow-2xl">
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-white mb-4">설정</h3>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-400 mb-1">Google Apps Script URL</label>
+                    <input type="text" id="scriptUrl"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+                        placeholder="https://script.google.com/macros/s/.../exec">
+                    <p class="text-xs text-gray-500 mt-1">배포된 웹 앱 URL을 입력하세요. (데이터 동기화용)</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeSettings()" class="px-4 py-2 text-gray-400 hover:text-white">취소</button>
+                    <button onclick="saveSettings()"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Advanced Classification Logic ---
+        const CRITERIA = {
+            GREEN: {
+                id: 'GREEN',
+                label: '초록',
+                subLabel: '문제 없음',
+                color: 'text-green-400',
+                bg: 'bg-green-500/20',
+                border: 'border-green-500/50',
+                icon: 'check-circle-2',
+                desc: '진행률 90-100%, 자발적 개선',
+                keywords: ['90%', '95%', '100%', '완벽', '적극', '자발', '개선', '훌륭', '빠름', '즉각']
+            },
+            LIGHT_GREEN: {
+                id: 'LIGHT_GREEN',
+                label: '연두',
+                subLabel: '경미한 리스크',
+                color: 'text-lime-400',
+                bg: 'bg-lime-500/20',
+                border: 'border-lime-500/50',
+                icon: 'check-circle',
+                desc: '진행률 75-90%, 가이드 준수',
+                keywords: ['75%', '80%', '85%', '무난', '준수', '따라옴', '일부 누락', '회복 가능']
+            },
+            YELLOW: {
+                id: 'YELLOW',
+                label: '노랑',
+                subLabel: '주의 필요',
+                color: 'text-yellow-400',
+                bg: 'bg-yellow-500/20',
+                border: 'border-yellow-500/50',
+                icon: 'alert-triangle',
+                desc: '진행률 50-75%, 속도 느림',
+                keywords: ['50%', '60%', '70%', '느림', '실수', '오류', '부분 반영', '추가 튜터링']
+            },
+            ORANGE: {
+                id: 'ORANGE',
+                label: '주황',
+                subLabel: '적극 개입',
+                color: 'text-orange-400',
+                bg: 'bg-orange-500/20',
+                border: 'border-orange-500/50',
+                icon: 'alert-octagon',
+                desc: '진행률 30-50%, 반복 지연',
+                keywords: ['30%', '40%', '지연', '미이행', '어려움', '흐지부지', '변화 없음', '개선 안됨'],
+                fatalWords: ['가이드 미이행', '반복된 지연', '변화 없이', '흐지부지', '해결 실패']
+            },
+            RED: {
+                id: 'RED',
+                label: '빨강',
+                subLabel: '심층 면담',
+                color: 'text-red-500',
+                bg: 'bg-red-500/20',
+                border: 'border-red-500/50',
+                icon: 'x-octagon',
+                desc: '진행률 0-30%, 미제출, 두절',
+                keywords: ['0%', '10%', '20%', '미제출', '안함', '두절', '없음', '포기', '답변 안함'],
+                fatalWords: ['미제출', '착수하지 않음', '연락 두절', '답변을 하지 않음', '의지 없음', '안함', '못함']
+            }
+        };
+
+        const STARTUP_DIMENSIONS = {
+            CUSTOMER: { id: 'CUSTOMER', label: '고객 집착', color: 'bg-pink-500/20 text-pink-300 border-pink-500/30', keywords: ['인터뷰', '고객', '니즈', '페르소나', 'voc', '설문'] },
+            AGILITY: { id: 'AGILITY', label: '실행력/검증', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', keywords: ['가설', '검증', 'mvp', '피봇', '테스트', '빠른', '시도'] },
+            BUSINESS: { id: 'BUSINESS', label: '비즈니스 마인드', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', keywords: ['bm', '수익', '비용', '시장', '매출', '돈'] }
+        };
+
+        let students = [];
+        let API_URL = localStorage.getItem('traffic_light_api_url') || '';
+
+        // --- Data Sync Logic ---
+        async function syncData() {
+            if (!API_URL) {
+                alert('설정에서 Google Apps Script URL을 먼저 입력해주세요.');
+                openSettings();
+                return;
+            }
+
+        }
+
+        async function saveData(student) {
+            if (!API_URL) return; // Local only if no URL
+
+            try {
+                // Send POST request (using no-cors mode usually requires text/plain for simple requests, 
+                // but Apps Script Web App handles POST differently. 
+                // Standard fetch to Apps Script often requires 'application/json' and handling CORS.
+                // For simplicity in this demo, we assume the Apps Script is deployed as "Anyone" which allows CORS.
+
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Apps Script often needs this for simple POSTs from browser
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(student)
+                });
+
+                // Trigger sync after save to ensure consistency (optional)
+                // syncData(); 
+            } catch (err) {
+                console.error('Save failed', err);
+                alert('저장 실패 (로컬에는 저장됨): ' + err.message);
+            }
+        }
+
+        // --- Analysis Logic ---
+        function analyzeText(text) {
+            const t = text.toLowerCase();
+            let reasoning = [];
+            let detectedLevel = null;
+            let startupTags = [];
+
+            // 0. Startup Dimension Check
+            Object.values(STARTUP_DIMENSIONS).forEach(dim => {
+                const found = dim.keywords.some(k => t.includes(k));
+                if (found) startupTags.push(dim);
+            });
+
+            // 1. Check Fatal Words
+            const redFatal = CRITERIA.RED.fatalWords.find(w => t.includes(w));
+            if (redFatal) {
+                return {
+                    level: CRITERIA.RED,
+                    reasoning: `치명적 단어 '${redFatal}'이(가) 감지되어 즉시 빨강으로 분류되었습니다.`,
+                    startupTags
+                };
+            }
+
+            const orangeFatal = CRITERIA.ORANGE.fatalWords.find(w => t.includes(w));
+            if (orangeFatal) {
+                return {
+                    level: CRITERIA.ORANGE,
+                    reasoning: `치명적 단어 '${orangeFatal}'이(가) 감지되어 주황으로 분류되었습니다.`,
+                    startupTags
+                };
+            }
+
+            // 2. Quantitative Analysis
+            let percentScore = 0;
+            let percentLevel = null;
+            const percentMatch = t.match(/(\d{1,3})%/);
+
+            if (percentMatch) {
+                const p = parseInt(percentMatch[1]);
+                reasoning.push(`진행률 ${p}% 감지됨.`);
+
+                if (p >= 90) percentLevel = CRITERIA.GREEN;
+                else if (p >= 75) percentLevel = CRITERIA.LIGHT_GREEN;
+                else if (p >= 50) percentLevel = CRITERIA.YELLOW;
+                else if (p >= 30) percentLevel = CRITERIA.ORANGE;
+                else percentLevel = CRITERIA.RED;
+            }
+
+            // 3. Behavioral Analysis
+            let scores = { GREEN: 0, LIGHT_GREEN: 0, YELLOW: 0, ORANGE: 0, RED: 0 };
+            let matchedKeywords = [];
+
+            Object.values(CRITERIA).forEach(level => {
+                level.keywords.forEach(kw => {
+                    if (t.includes(kw)) {
+                        scores[level.id] += 1;
+                        matchedKeywords.push(kw);
+                    }
+                });
+            });
+
+            if (matchedKeywords.length > 0) {
+                reasoning.push(`키워드 발견: [${matchedKeywords.join(', ')}]`);
+            }
+
+            let maxScore = 0;
+            let behavioralLevel = CRITERIA.YELLOW;
+
+            Object.keys(scores).forEach(key => {
+                if (scores[key] > maxScore) {
+                    maxScore = scores[key];
+                    behavioralLevel = CRITERIA[key];
+                }
+            });
+
+            // 4. Final Decision
+            let finalLevel = behavioralLevel;
+
+            if (percentLevel) {
+                if (percentLevel.id === 'RED' || percentLevel.id === 'ORANGE') {
+                    finalLevel = percentLevel;
+                    reasoning.push(`진행률이 낮아 ${finalLevel.label}로 결정되었습니다.`);
+                } else {
+                    const levels = ['RED', 'ORANGE', 'YELLOW', 'LIGHT_GREEN', 'GREEN'];
+                    const pIndex = levels.indexOf(percentLevel.id);
+                    const bIndex = levels.indexOf(behavioralLevel.id);
+
+                    const finalIndex = Math.min(pIndex, bIndex);
+                    finalLevel = CRITERIA[levels[finalIndex]];
+                    reasoning.push(`진행률(${percentLevel.label})과 행동지표(${behavioralLevel.label})를 종합하여 판단했습니다.`);
+                }
+            } else {
+                reasoning.push("진행률 정보가 없어 행동 키워드 위주로 분석했습니다.");
+            }
+
+            return {
+                level: finalLevel,
+                reasoning: reasoning.join(' '),
+                startupTags
+            };
+        }
+
+        function handleAnalyze(e) {
+            e.preventDefault();
+            const name = document.getElementById('studentName').value;
+            const notes = document.getElementById('studentNotes').value;
+
+            if (!name || !notes) return;
+
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 분석 중...';
+            btn.disabled = true;
+
+            setTimeout(async () => {
+                const analysis = analyzeText(notes);
+                const timestamp = new Date().toLocaleString();
+
+                const newEntry = {
+                    notes,
+                    result: analysis.level,
+                    reasoning: analysis.reasoning,
+                    startupTags: analysis.startupTags,
+                    date: timestamp
+                };
+
+                // State Management
+                const existingIndex = students.findIndex(s => s.name === name);
+                let studentToSave = null;
+
+                if (existingIndex !== -1) {
+                    const student = students[existingIndex];
+                    if (!student.history) student.history = [];
+                    student.history.unshift({
+                        notes: student.notes,
+                        result: student.result,
+                        reasoning: student.reasoning,
+                        startupTags: student.startupTags,
+                        date: student.date
+                    });
+
+                    student.notes = newEntry.notes;
+                    student.result = newEntry.result;
+                    student.reasoning = newEntry.reasoning;
+                    student.startupTags = newEntry.startupTags;
+                    student.date = newEntry.date;
+
+                    students.splice(0, 0, students.splice(existingIndex, 1)[0]);
+                    studentToSave = student;
+                    renderResultCard(student);
+                } else {
+                    const newStudent = {
+                        id: Date.now(),
+                        name,
+                        ...newEntry,
+                        history: []
+                    };
+                    students.unshift(newStudent);
+                    studentToSave = newStudent;
+                    renderResultCard(newStudent);
+                }
+
+                updateDashboard();
+                renderTable();
+
+                // Save to Cloud
+                if (API_URL) {
+                    await saveData(studentToSave);
+                }
+
+                document.getElementById('analysisForm').reset();
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                lucide.createIcons();
+            }, 600);
+        }
+
+        function renderResultCard(student) {
+            const container = document.getElementById('resultSection');
+            const { result, reasoning, startupTags } = student;
+
+            const tagsHtml = startupTags.map(tag =>
+                `<span class="px-2 py-1 rounded text-xs border ${tag.color} mr-1">${tag.label}</span>`
+            ).join('');
+
+            container.innerHTML = `
+                <div class="w-full h-full flex flex-col items-center justify-center animate-fade-in">
+                    <div class="relative mb-4">
+                        <div class="absolute inset-0 ${result.color.replace('text-', 'bg-')} blur-2xl opacity-20 animate-pulse-slow"></div>
+                        <i data-lucide="${result.icon}" class="w-20 h-20 ${result.color} relative z-10 drop-shadow-lg"></i>
+                    </div>
+                    
+                    <h2 class="text-2xl font-bold mb-1 ${result.color}">${result.label} <span class="text-lg font-normal opacity-80">(${result.subLabel})</span></h2>
+                    
+                    <div class="mt-2 mb-4 flex flex-wrap justify-center gap-1">
+                        ${tagsHtml}
+                    </div>
+
+                    <div class="w-full bg-gray-900/80 rounded-xl p-4 border border-gray-700 text-left mt-2">
+                        <div class="flex items-start gap-2 mb-2">
+                            <i data-lucide="info" class="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0"></i>
+                            <span class="text-sm text-blue-100 font-medium">분석 결과 (Reasoning)</span>
+                        </div>
+                        <p class="text-gray-300 text-sm leading-relaxed">${reasoning}</p>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function updateDashboard() {
+            document.getElementById('statTotal').innerText = students.length;
+
+            const counts = { GREEN: 0, LIGHT_GREEN: 0, YELLOW: 0, ORANGE: 0, RED: 0 };
+            students.forEach(s => counts[s.result.id]++);
+
+            document.getElementById('statGreen').innerText = counts.GREEN;
+            document.getElementById('statLightGreen').innerText = counts.LIGHT_GREEN;
+            document.getElementById('statYellow').innerText = counts.YELLOW;
+            document.getElementById('statOrange').innerText = counts.ORANGE;
+            document.getElementById('statRed').innerText = counts.RED;
+        }
+
+        function setFilter(status) {
+            document.getElementById('filterStatus').value = status;
+            document.querySelectorAll('.filter-card').forEach(card => card.classList.remove('active', 'border-2', 'border-white/50'));
+            const activeCard = document.getElementById(`card-${status}`);
+            if (activeCard) {
+                activeCard.classList.add('active', 'border-2', 'border-white/50');
+            }
+            const labels = {
+                'ALL': '전체 보기',
+                'GREEN': '초록 (문제없음)',
+                'LIGHT_GREEN': '연두 (경미리스크)',
+                'YELLOW': '노랑 (주의필요)',
+                'ORANGE': '주황 (적극개입)',
+                'RED': '빨강 (심층면담)'
+            };
+            document.getElementById('currentFilterLabel').innerText = labels[status];
+            renderTable();
+        }
+
+        function renderTable() {
+            const filter = document.getElementById('filterStatus').value;
+            const tbody = document.getElementById('studentTableBody');
+
+            const filtered = filter === 'ALL'
+                ? students
+                : students.filter(s => s.result.id === filter);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-gray-600">데이터가 없습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(s => {
+                const tagsHtml = s.startupTags.map(tag =>
+                    `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] border ${tag.color} mr-1 mb-1">${tag.label}</span>`
+                ).join('');
+
+                return `
+                <tr onclick="openHistoryModal(${s.id})" class="bg-gray-800/20 border-b border-gray-700 hover:bg-white/5 transition-colors cursor-pointer group">
+                    <td class="px-6 py-4">
+                        <span class="flex items-center gap-2 ${s.result.color} font-medium">
+                            <i data-lucide="${s.result.icon}" class="w-4 h-4"></i>
+                            ${s.result.label}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-medium text-white group-hover:text-blue-300 transition-colors">
+                        ${s.name}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="mb-1">${tagsHtml}</div>
+                        <p class="text-xs text-gray-400 mb-1 line-clamp-1">"${s.notes}"</p>
+                        <p class="text-sm text-blue-200/80 line-clamp-1">${s.reasoning}</p>
+                    </td>
+                    <td class="px-6 py-4 text-right text-xs text-gray-500">
+                        ${s.date}
+                        ${s.history && s.history.length > 0 ? `<span class="ml-2 px-1.5 py-0.5 bg-gray-700 rounded text-[10px] text-gray-300">+${s.history.length}</span>` : ''}
+                    </td>
+                </tr>
+            `}).join('');
+            lucide.createIcons();
+        }
+
+        // --- Modal Logic ---
+        function openHistoryModal(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            document.getElementById('modalStudentName').innerText = student.name;
+            const timeline = document.getElementById('modalTimeline');
+
+            const allRecords = [
+                { ...student, isCurrent: true },
+                ...(student.history || [])
+            ];
+
+            timeline.innerHTML = allRecords.map((record, index) => {
+                const tagsHtml = record.startupTags.map(tag =>
+                    `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] border ${tag.color} mr-1">${tag.label}</span>`
+                ).join('');
+
+                return `
+                <div class="relative pl-8 pb-8 last:pb-0">
+                    <div class="absolute left-[9px] top-1 w-3.5 h-3.5 rounded-full ${record.result.bg.replace('/20', '')} border-2 border-gray-900 z-10"></div>
+                    <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 ${record.isCurrent ? 'ring-1 ring-blue-500/50' : ''}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="${record.result.color} font-bold flex items-center gap-1">
+                                    ${record.result.label}
+                                </span>
+                                ${record.isCurrent ? '<span class="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded">Current</span>' : ''}
+                            </div>
+                            <span class="text-xs text-gray-500">${record.date}</span>
+                        </div>
+                        <div class="mb-2">${tagsHtml}</div>
+                        <div class="text-sm text-gray-300 mb-2">"${record.notes}"</div>
+                        <div class="text-xs text-blue-300/70 bg-blue-900/20 p-2 rounded">
+                            💡 ${record.reasoning}
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+
+            const modal = document.getElementById('historyModal');
+            const content = document.getElementById('modalContent');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('historyModal');
+            const content = document.getElementById('modalContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        document.getElementById('historyModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('historyModal')) closeModal();
+        });
+
+        // --- Settings Modal Logic ---
+        function openSettings() {
+            document.getElementById('scriptUrl').value = API_URL;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (url) {
+                API_URL = url;
+                localStorage.setItem('traffic_light_api_url', url);
+                alert('설정이 저장되었습니다. 데이터를 동기화합니다.');
+                closeSettings();
+                syncData();
+            }
+        }
+
+        // Initialize
+        if (API_URL) {
+            syncData();
+        }
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
